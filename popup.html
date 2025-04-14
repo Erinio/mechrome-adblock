@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Me Ad Blocker</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+    <script src="popup.js" defer></script>
+    <style>
+        body {
+            width: 350px;
+            padding: 15px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2E7D32;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #E8F5E9;
+            color: #2E7D32;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #444;
+            margin: 20px 0 10px 0;
+            border-bottom: 1px solid #eaeaea;
+            padding-bottom: 5px;
+        }
+
+        .blocked-sites {
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .site-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .site-item:last-child {
+            border-bottom: none;
+        }
+
+        .remove-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .remove-btn:hover {
+            background: #d32f2f;
+        }
+
+        .empty-message {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            padding: 15px;
+        }
+
+        /* Tab styles */
+        .tab-container {
+            margin-top: 20px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-button {
+            padding: 8px 15px;
+            background: #f1f1f1;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom: 2px solid #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 10px;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .allowed-sites {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .site-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .site-domain {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .site-item .toggle-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .site-item .toggle-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .add-domain-container {
+            display: flex;
+            margin-top: 10px;
+            gap: 5px;
+        }
+
+        .add-domain-container input[type="text"] {
+            flex-grow: 1;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .add-domain-container button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            color: white;
+        }
+
+        .add-blocked-btn {
+            background-color: #f44336;
+            /* Red */
+        }
+
+        .add-blocked-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        .add-allowed-btn {
+            background-color: #4CAF50;
+            /* Green */
+        }
+
+        .add-allowed-btn:hover {
+            background-color: #388E3C;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h2 style="margin: 0;">Me Ad Blocker</h2>
+        <div class="status-badge">Active</div>
+    </div>
+
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-label">Ads Blocked</div>
+            <div class="stat-number" id="adsCounter">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Popups Blocked</div>
+            <div class="stat-number" id="popupsCounter">0</div>
+        </div>
+    </div>
+
+    <!-- Tab interface for popup management -->
+    <div class="section-title">Popup Management</div>
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="blocked-tab">Blocked Sites</button>
+            <button class="tab-button" data-tab="allowed-tab">Allowed Sites</button>
+        </div>
+
+        <div id="blocked-tab" class="tab-content active">
+            <div class="add-domain-container">
+                <input type="text" id="addBlockedDomainInput" placeholder="e.g., example.com">
+                <button id="addBlockedDomainBtn" class="add-blocked-btn">Block Site</button>
+            </div>
+            <div class="blocked-sites" id="blockedSitesList">
+                <div class="empty-message" id="emptyBlockedMessage">No sites blocked yet</div>
+                <!-- Blocked sites will be listed here -->
+            </div>
+        </div>
+
+        <div id="allowed-tab" class="tab-content">
+            <div class="add-domain-container">
+                <input type="text" id="addAllowedDomainInput" placeholder="e.g., example.com">
+                <button id="addAllowedDomainBtn" class="add-allowed-btn">Allow Site</button>
+            </div>
+            <div class="allowed-sites" id="allowedSitesList">
+                <div class="empty-message" id="emptyAllowedMessage">No sites allowed yet</div>
+                <!-- Allowed sites will be listed here -->
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

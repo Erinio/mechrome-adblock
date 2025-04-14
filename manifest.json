@@ -1,0 +1,57 @@
+{
+    "manifest_version": 3,
+    "name": "MeChrome Ad Blocker",
+    "version": "1.0",
+    "description": "A simple ad blocker extension",
+    "permissions": [
+        "declarativeNetRequest",
+        "declarativeNetRequestFeedback",
+        "storage",
+        "tabs",
+        "notifications",
+        "webRequest",
+        "webNavigation"
+    ],
+    "host_permissions": [
+        "*://*/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "images/16x16.png",
+            "48": "images/48x48.png",
+            "128": "images/128x128.png"
+        }
+    },
+    "icons": {
+        "16": "images/16x16.png",
+        "48": "images/48x48.png",
+        "128": "images/128x128.png"
+    },
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "id": "ruleset_1",
+                "enabled": true,
+                "path": "rules.json"
+            }
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.youtube.com/*"
+            ],
+            "css": [
+                "youtube-ad-blocker.css"
+            ],
+            "js": [
+                "youtube-script.js"
+            ],
+            "run_at": "document_start"
+        }
+    ]
+}

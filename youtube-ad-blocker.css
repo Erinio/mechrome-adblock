@@ -1,0 +1,86 @@
+/* Hide YouTube ad elements */
+ytd-ad-slot-renderer,
+.style-scope.ytd-ad-slot-renderer,
+.ytd-display-ad-renderer,
+ytd-display-ad-renderer,
+ytd-rich-item-renderer[is-ad],
+ytd-in-feed-ad-layout-renderer,
+ytd-promoted-sparkles-web-renderer,
+ytd-promoted-video-renderer,
+ytd-brand-video-singleton-renderer,
+ytd-statement-banner-renderer[data-type="ad"],
+ytd-video-masthead-ad-v3-renderer,
+div[id^="ads"],
+div[id^="google_ads_"],
+.masthead-ad-control,
+.ytd-carousel-ad-renderer,
+.ytd-promoted-sparkles-text-search-renderer,
+.ytp-ad-overlay-container,
+.ytp-ad-image-overlay,
+.ytp-ad-overlay-image,
+.ytp-ad-progress-list,
+.ytp-ad-progress,
+div[id^="player-ads"],
+div[id="player-ads"],
+div[class*="ytd-mealbar-promo-renderer"],
+div[class*="ytd-banner-promo-renderer"],
+div[id="root"][class*="style-scope ytd-display-ad"],
+#masthead-ad,
+yt-mealbar-promo-renderer {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Video ad specific elements - critical for quick ad removal */
+.ytp-ad-module,
+.ytp-ad-player-overlay,
+.ytp-ad-player-overlay-instream-info,
+.ytp-ad-player-overlay-instream-user-sentiment,
+.ytp-ad-player-overlay-skip-or-preview,
+.ytp-ad-player-overlay-flyout-cta,
+.ytp-ad-text-overlay,
+.ytp-ad-feedback-dialog-background,
+.ytp-ad-feedback-dialog,
+.ytp-ad-persistent-progress-bar-container,
+.html5-video-player.ad-showing .video-ads,
+.html5-video-player.ad-showing .ytp-ad-player-overlay {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Ensure video player is visible even when ads are supposed to be showing */
+.html5-video-player.ad-showing video,
+.html5-video-player.ad-showing .html5-main-video,
+.html5-video-player.ad-showing .html5-video-container {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Hide Google ad containers */
+iframe[src*="googleads"],
+iframe[src*="doubleclick"],
+iframe[id*="google_ads_frame"],
+div[class*="GoogleActiveViewElement"],
+div[id*="GoogleActiveViewElement"],
+div[data-ad-client],
+div[data-ad-slot],
+div[data-adsbygoogle-status],
+ins.adsbygoogle {
+    display: none !important;
+}
+
+/* Additional selectors to target hard-to-catch ad elements */
+[class*="ad-container"],
+[class*="ad-overlay"],
+[class*="adDisplay"],
+[class*="adMarker"],
+[aria-label*="advertisement"],
+[data-purpose="ad-unit"],
+[data-ad-placement] {
+    display: none !important;
+}
