@@ -13,9 +13,6 @@ A powerful and lightweight Chrome extension that blocks ads, trackers, and unwan
 
 ## Installation
 
-### From Chrome Web Store
-*(Coming Soon)*
-
 ### Manual Installation
 
 1. Download or clone this repository
