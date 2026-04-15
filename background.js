@@ -1,323 +1,316 @@
-// List of common ad/tracker domains (subset for counting purposes)
-const adDomainsForCounting = [
-    // Existing domains
-    "doubleclick.net",
-    "google-analytics.com",
-    "googlesyndication.com",
-    "googleadservices.com",
-    "connect.facebook.net",
-    "quantserve.com",
-    "amazon-adsystem.com",
-    "adbrite.com",
-    "exponential.com",
-    "quantcount.com",
-    "scorecardresearch.com",
-    "zedo.com",
-    "admob.com",
-    "adnxs.com",
-    "outbrain.com",
-    "taboola.com",
-    "adroll.com",
-    "advertising.com",
-    "fastclick.net",
-    "criteo.com",
-    "doubleverify.com",
-
-    // Additional ad networks and trackers
-    "moatads.com",
-    "rubiconproject.com",
-    "2mdn.net",
-    "adsrvr.org",
-    "pubmatic.com",
-    "adform.net",
-    "openx.net",
-    "casalemedia.com",
-    "chartboost.com",
-    "unity3d.com",
-    "mopub.com",
-    "innovid.com",
-    "adtechus.com",
-    "smartadserver.com",
-    "krxd.net", // Krux Digital
-    "mathtag.com", // MediaMath
-    "nexac.com", // Nexstar/acuity
-    "sitescout.com",
-    "mediamath.com",
-    "exelator.com", // Nielsen
-    "bluekai.com", // Oracle
-    "bidswitch.net",
-    "contextweb.com",
-    "33across.com",
-    "teads.tv",
-    "yieldmo.com",
-    "sharethrough.com",
-    "triplelift.com",
-    "intentiq.com",
-    "spotxchange.com",
-    "indexww.com", // Index Exchange
-    "facebook.com/tr", // Facebook tracking pixel
-    "facebook.net",
-    "fbcdn.net",
-    "ads-twitter.com",
-    "analytics.twitter.com",
-    "static.ads-twitter.com",
-    "ads.pinterest.com",
-    "ads.linkedin.com",
-    "ads.yahoo.com",
-    "analytics.yahoo.com",
-    "adtech.com",
-    "adition.com",
-    "bing.com/action",
-    "adsafeprotected.com", // IAS
-    "omtrdc.net", // Adobe Analytics
-    "demdex.net", // Adobe Audience Manager
-    "everesttech.net", // Adobe Media Optimizer
-    "amplitude.com",
-    "branch.io",
-    "adjust.com",
-    "appsflyer.com",
-    "kochava.com",
-    "segment.com",
-    "segment.io",
-    "mixpanel.com",
-    "hotjar.com",
-    "snapchat.com/add",
-    "sc-static.net", // Snapchat
-    "serving-sys.com", // Sizmek
-    "simpli.fi",
-    "summerhamster.com",
-    "tapad.com",
-    "tiktok.com/analytics",
-    "analytics.tiktok.com",
-    "ads.tiktok.com",
-    "clarity.ms", // Microsoft Clarity
-    "msftncsi.com", // Microsoft tracking
-    "zemanta.com"
+const RESOURCE_TYPES = [
+    'main_frame',
+    'sub_frame',
+    'stylesheet',
+    'script',
+    'image',
+    'font',
+    'object',
+    'xmlhttprequest',
+    'ping',
+    'csp_report',
+    'media',
+    'websocket',
+    'other'
 ];
 
-// Add YouTube-specific domains for ad detection
-const youtubeAdDomains = [
-    "googlevideo.com",
-    "youtube.com/pagead",
-    "youtube.com/ptracking",
-    "youtube.com/api/stats/ads",
-    "youtube.com/api/stats/watchtime",
-    "youtube.com/api/stats/qoe",
-    "youtube.com/youtubei/v1/player/ad_",
-    "youtube.com/youtubei/v1/log_",
-    // Add these new patterns
-    "youtube.com/ad-inline-playback-metadata",
-    "youtube.com/youtubei/v1/browse",
-    "youtube.com/youtubei/v1/player/overlay",
-    "youtube.com/watch?v=*&ad_",
-    "youtube.com/watch?*&instream_ad=",
-    "youtube.com/live_chat?*&action_ad",
-    // Add new patterns
-    "ytd-ad-slot-renderer",
-    "youtube.com/ytd/ad-slot-renderer",
-    "ytimg.com/ad-slot-renderer",
-    "youtube.com/youtubei/v1/next"
+const RULE_ID_BASE = {
+    whitelist: 200000,
+    blockedSites: 210000,
+    strictTrackers: 220000
+};
+
+const STRICT_TRACKER_DOMAINS = [
+    'google-analytics.com',
+    'googletagmanager.com',
+    'stats.g.doubleclick.net',
+    'connect.facebook.net',
+    'facebook.com/tr',
+    'analytics.twitter.com',
+    'ads-twitter.com',
+    'static.ads-twitter.com',
+    'snapchat.com/tr',
+    'tr.snapchat.com',
+    'analytics.tiktok.com',
+    'ads.tiktok.com',
+    'pixel.rubiconproject.com',
+    'adsrvr.org',
+    'taboola.com',
+    'outbrain.com',
+    'chartbeat.com',
+    'scorecardresearch.com',
+    'newrelic.com',
+    'hotjar.com',
+    'mixpanel.com',
+    'segment.com',
+    'segment.io',
+    'amplitude.com',
+    'clarity.ms',
+    'criteo.com',
+    'adnxs.com',
+    'pubmatic.com',
+    'doubleverify.com',
+    'casalemedia.com',
+    'mathtag.com',
+    'demdex.net',
+    'everesttech.net',
+    'omtrdc.net',
+    'quantserve.com',
+    'quantcount.com',
+    'krxd.net',
+    'bluekai.com',
+    'bidswitch.net',
+    'branch.io',
+    'appsflyer.com',
+    'adjust.com',
+    'kochava.com',
+    'teads.tv',
+    'yieldmo.com',
+    'triplelift.com',
+    'sharethrough.com'
 ];
 
-// Add tab-specific tracking
-let tabBlockCounts = {}; // Store block counts per tab
-// Track the URL of each tab to detect actual navigation changes
-let tabUrls = {};
+const tabBlockCounts = {};
+const tabUrls = {};
 
-// Initialize statistics in chrome.storage
-chrome.runtime.onInstalled.addListener(() => {
-    chrome.storage.local.set({
-        totalAdsBlocked: 0, // Reset ad counter on install/update
-        totalPopupsBlocked: 0,
-        blockedDomains: {},
-        allowedDomains: {}
+function normalizeDomain(input) {
+    if (!input || typeof input !== 'string') return '';
+
+    let domain = input.trim().toLowerCase();
+    if (!domain) return '';
+
+    try {
+        if (domain.includes('://')) {
+            domain = new URL(domain).hostname;
+        }
+    } catch (_) {
+        return '';
+    }
+
+    domain = domain.replace(/^www\./, '').replace(/\/$/, '');
+
+    if (!/^[a-z0-9.-]+$/.test(domain) || !domain.includes('.')) {
+        return '';
+    }
+
+    return domain;
+}
+
+function extractDomain(url) {
+    try {
+        if (!url || !url.startsWith('http')) return '';
+        return normalizeDomain(new URL(url).hostname);
+    } catch (_) {
+        return '';
+    }
+}
+
+function incrementBlockedCounter(tabId) {
+    chrome.storage.local.get(['totalAdsBlocked'], ({ totalAdsBlocked = 0 }) => {
+        chrome.storage.local.set({ totalAdsBlocked: totalAdsBlocked + 1 });
     });
 
-    // Initialize the badge text to "0" (for total blocks)
-    chrome.action.setBadgeText({ text: "0" });
-    chrome.action.setBadgeBackgroundColor({ color: "#DB4437" }); // Red color for blocked count
+    if (tabId > 0) {
+        tabBlockCounts[tabId] = (tabBlockCounts[tabId] || 0) + 1;
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs?.[0]?.id === tabId) {
+                updateBadgeForTab(tabId);
+            }
+        });
+    }
+}
 
-    console.log('Me Ad Blocker installed/updated. Initialized storage.');
+function updateBadgeForTab(tabId) {
+    if (tabId <= 0) return;
 
-    // Initialize empty tabBlockCounts
-    tabBlockCounts = {};
+    const count = tabBlockCounts[tabId] || 0;
+    const badgeText = count > 999 ? '999+' : count > 0 ? String(count) : '';
+
+    chrome.action.setBadgeText({ text: badgeText });
+    chrome.action.setBadgeBackgroundColor({ color: '#DB4437' });
+    chrome.action.setTitle({
+        title: `MeChrome Ad Blocker\nAds blocked on this page: ${count}`
+    });
+}
+
+async function ensureStorageDefaults() {
+    const defaults = {
+        totalAdsBlocked: 0,
+        totalPopupsBlocked: 0,
+        blockedDomains: {},
+        allowedDomains: {},
+        settings: {
+            enabled: true,
+            strictMode: false
+        }
+    };
+
+    const state = await chrome.storage.local.get(Object.keys(defaults));
+
+    const nextState = {
+        ...defaults,
+        ...state,
+        settings: {
+            ...defaults.settings,
+            ...(state.settings || {})
+        }
+    };
+
+    await chrome.storage.local.set(nextState);
+    return nextState;
+}
+
+function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings = {} }) {
+    const rules = [];
+    const enabled = settings.enabled !== false;
+
+    if (!enabled) return rules;
+
+    let offset = 0;
+    const allowed = Object.keys(allowedDomains)
+        .filter((domain) => allowedDomains[domain])
+        .map(normalizeDomain)
+        .filter(Boolean)
+        .sort();
+
+    for (const domain of allowed) {
+        rules.push({
+            id: RULE_ID_BASE.whitelist + offset,
+            priority: 1000,
+            action: { type: 'allowAllRequests' },
+            condition: {
+                initiatorDomains: [domain],
+                resourceTypes: RESOURCE_TYPES.filter((type) => type !== 'main_frame')
+            }
+        });
+        offset += 1;
+    }
+
+    offset = 0;
+    const blocked = Object.keys(blockedDomains)
+        .filter((domain) => blockedDomains[domain])
+        .map(normalizeDomain)
+        .filter(Boolean)
+        .sort();
+
+    for (const domain of blocked) {
+        rules.push({
+            id: RULE_ID_BASE.blockedSites + offset,
+            priority: 900,
+            action: { type: 'block' },
+            condition: {
+                urlFilter: `||${domain}^`,
+                resourceTypes: RESOURCE_TYPES
+            }
+        });
+        offset += 1;
+    }
+
+    if (settings.strictMode) {
+        STRICT_TRACKER_DOMAINS.forEach((domain, index) => {
+            rules.push({
+                id: RULE_ID_BASE.strictTrackers + index,
+                priority: 10,
+                action: { type: 'block' },
+                condition: {
+                    urlFilter: `||${domain}^`,
+                    resourceTypes: RESOURCE_TYPES.filter((type) => type !== 'main_frame')
+                }
+            });
+        });
+    }
+
+    return rules;
+}
+
+function isManagedRuleId(id) {
+    return id >= RULE_ID_BASE.whitelist && id < RULE_ID_BASE.strictTrackers + 20000;
+}
+
+async function syncDynamicRules() {
+    const state = await chrome.storage.local.get(['blockedDomains', 'allowedDomains', 'settings']);
+    const desiredRules = buildManagedRules(state);
+    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+
+    const removeRuleIds = existingRules.filter((rule) => isManagedRuleId(rule.id)).map((rule) => rule.id);
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds,
+        addRules: desiredRules
+    });
+}
+
+function resetTabCounterForNavigation(tabId, url) {
+    const domain = extractDomain(url);
+    if (!domain || tabId <= 0) return;
+
+    const cleanUrl = new URL(url);
+    cleanUrl.hash = '';
+    const canonical = cleanUrl.toString();
+
+    if (tabUrls[tabId] !== canonical) {
+        tabUrls[tabId] = canonical;
+        tabBlockCounts[tabId] = 0;
+        updateBadgeForTab(tabId);
+    }
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+    await ensureStorageDefaults();
+    await syncDynamicRules();
+    chrome.action.setBadgeText({ text: '' });
 });
 
-// Listen for tab changes to update the badge
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    updateBadgeForTab(activeInfo.tabId);
+chrome.runtime.onStartup.addListener(async () => {
+    await ensureStorageDefaults();
+    await syncDynamicRules();
 });
 
-// More robust navigation detection - completely replace the previous navigation listener
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+
+    if (changes.settings || changes.blockedDomains || changes.allowedDomains) {
+        syncDynamicRules().catch((error) => {
+            console.error('Failed to sync dynamic rules:', error);
+        });
+    }
+});
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+    updateBadgeForTab(tabId);
+});
+
 chrome.webNavigation.onCommitted.addListener((details) => {
-    // Only handle main frame navigations (top-level page loads)
     if (details.frameId === 0 && details.tabId > 0) {
-        // Get the URL without hash/fragment
-        const url = new URL(details.url);
-        const urlWithoutHash = url.origin + url.pathname + url.search;
-
-        // Check if this is actually a new page (ignoring hash changes)
-        const oldUrl = tabUrls[details.tabId];
-        if (!oldUrl || !oldUrl.startsWith(urlWithoutHash)) {
-            console.log(`Navigation to new page in tab ${details.tabId}: ${urlWithoutHash}`);
-
-            // Store the new URL
-            tabUrls[details.tabId] = urlWithoutHash;
-
-            // Reset the counter for this tab
-            tabBlockCounts[details.tabId] = 0;
-
-            // Update the badge
-            updateBadgeForTab(details.tabId);
-        }
+        resetTabCounterForNavigation(details.tabId, details.url);
     }
 });
 
-// Add tab creation handler to initialize counters for new tabs
-chrome.tabs.onCreated.addListener((tab) => {
-    if (tab.id > 0) {
-        tabBlockCounts[tab.id] = 0;
-        if (tab.url) {
-            tabUrls[tab.id] = new URL(tab.url).origin + new URL(tab.url).pathname + new URL(tab.url).search;
-        }
-    }
-});
-
-// Clean up when tabs are closed
 chrome.tabs.onRemoved.addListener((tabId) => {
     delete tabBlockCounts[tabId];
     delete tabUrls[tabId];
 });
 
-// Listener for counting potential ad requests
-chrome.webRequest.onBeforeRequest.addListener(
-    (details) => {
-        try {
-            // Check if the request URL or initiator matches known ad domains
-            const requestUrl = details.url;
-            const initiator = details.initiator;
-            let isAd = false;
-            let isYoutubeAd = false;
-
-            // Use better error handling for URL parsing
-            try {
-                if (requestUrl) {
-                    // Check for regular ad domains
-                    const requestDomain = new URL(requestUrl).hostname;
-                    if (adDomainsForCounting.some(adDomain =>
-                        requestDomain && requestDomain.includes(adDomain))) {
-                        isAd = true;
-                    }
-
-                    // Additional check for YouTube ad patterns
-                    if (!isAd) {
-                        isYoutubeAd = youtubeAdDomains.some(pattern =>
-                            requestUrl.includes(pattern)) ||
-                            (requestUrl.includes("googlevideo.com/videoplayback") &&
-                                (requestUrl.includes("&adformat=") ||
-                                    requestUrl.includes("&adsid=") ||
-                                    requestUrl.includes("&rpn=") && requestUrl.includes("&rai=")));
-
-                        if (isYoutubeAd) isAd = true;
-                    }
-                }
-
-                // Also check initiator if available
-                if (!isAd && initiator) {
-                    const initiatorDomain = new URL(initiator).hostname;
-                    if (adDomainsForCounting.some(adDomain =>
-                        initiatorDomain && initiatorDomain.includes(adDomain))) {
-                        isAd = true;
-                    }
-                }
-            } catch (urlError) {
-                // Quietly ignore URL parsing errors
-            }
-
-            if (isAd) {
-                // Log YouTube ad blocks separately for debugging
-                if (isYoutubeAd) {
-                    console.log("YouTube ad blocked:", details.url.substring(0, 100) + "...");
-                }
-
-                // Increment the global ad counter
-                chrome.storage.local.get(['totalAdsBlocked'], (result) => {
-                    const newAdsTotal = (result.totalAdsBlocked || 0) + 1;
-                    chrome.storage.local.set({ totalAdsBlocked: newAdsTotal });
-
-                    // Also track per tab
-                    if (details.tabId > 0) { // Valid tab
-                        tabBlockCounts[details.tabId] = (tabBlockCounts[details.tabId] || 0) + 1;
-
-                        // Update badge for current tab
-                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                            if (tabs && tabs[0] && tabs[0].id === details.tabId) {
-                                updateBadgeForTab(details.tabId);
-                            }
-                        });
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Error in webRequest listener:", e);
-        }
-    },
-    { urls: ["<all_urls>"] },
-    []
-);
-
-// Add debug logging to help track counter updates
-function updateBadgeForTab(tabId) {
-    if (tabId <= 0) return; // Invalid tab
-
-    const count = tabBlockCounts[tabId] || 0;
-    console.log(`Updating badge for tab ${tabId}: ${count} blocks`);
-
-    let badgeText = count > 0 ? count.toString() : "";
-    if (count > 999) {
-        badgeText = "999+";
-    }
-
-    chrome.action.setBadgeText({ text: badgeText });
-    chrome.action.setTitle({
-        title: `MeChrome Ad Blocker\nAds Blocked on this page: ${count}`
-    });
-}
-
-// Modify the popup counter function to update both global and per-tab counters
-function incrementPopupCounter() {
-    chrome.storage.local.get(['totalPopupsBlocked'], (result) => {
-        const newPopupsTotal = (result.totalPopupsBlocked || 0) + 1;
-        chrome.storage.local.set({ totalPopupsBlocked: newPopupsTotal });
-
-        // Get current tab
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs && tabs[0] && tabs[0].id) {
-                // Don't update the visible badge for popup blocks
-                // We only want to show ad blocks for the current page
-            }
-        });
-    });
-}
-
-// Update badge on startup based on combined stored count
-chrome.runtime.onStartup.addListener(() => {
-    chrome.storage.local.get(['totalAdsBlocked', 'totalPopupsBlocked'], (result) => {
-        const totalBlocks = (result.totalAdsBlocked || 0) + (result.totalPopupsBlocked || 0);
-        updateBadgeCounter(totalBlocks);
-    });
+chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((details) => {
+    if (details.rule?.action !== 'block') return;
+    incrementBlockedCounter(details.request?.tabId || -1);
 });
 
-// Also update badge on install
-chrome.runtime.onInstalled.addListener(() => {
-    chrome.storage.local.set({
-        totalAdsBlocked: 0, // Reset ad counter on install/update
-        totalPopupsBlocked: 0,
-        blockedDomains: {},
-        allowedDomains: {}
-    });
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'get-state') {
+        chrome.storage.local.get(['settings', 'allowedDomains', 'blockedDomains'], (state) => {
+            sendResponse({
+                settings: {
+                    enabled: true,
+                    strictMode: false,
+                    ...(state.settings || {})
+                },
+                allowedDomains: state.allowedDomains || {},
+                blockedDomains: state.blockedDomains || {}
+            });
+        });
+        return true;
+    }
 
-    // Initialize the badge text to "0" (for total blocks)
-    chrome.action.setBadgeText({ text: "0" });
-    chrome.action.setBadgeBackgroundColor({ color: "#DB4437" }); // Red color for blocked count
+    return false;
 });
