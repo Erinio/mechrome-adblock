@@ -1,297 +1,268 @@
-// Update counters when popup opens
+function normalizeDomain(input) {
+    if (!input || typeof input !== 'string') return '';
+
+    let domain = input.trim().toLowerCase();
+    if (!domain) return '';
+
+    try {
+        if (domain.includes('://')) {
+            domain = new URL(domain).hostname;
+        }
+    } catch (_) {
+        return '';
+    }
+
+    domain = domain.replace(/^www\./, '').replace(/\/$/, '');
+
+    if (!/^[a-z0-9.-]+$/.test(domain) || !domain.includes('.')) {
+        return '';
+    }
+
+    return domain;
+}
+
+async function getActiveTabDomain() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !tab.url.startsWith('http')) {
+        return '';
+    }
+
+    return normalizeDomain(new URL(tab.url).hostname);
+}
+
 function updateCounters() {
-    chrome.storage.local.get(['totalAdsBlocked', 'totalPopupsBlocked'], function (result) {
+    chrome.storage.local.get(['totalAdsBlocked', 'totalPopupsBlocked'], (result) => {
         document.getElementById('adsCounter').textContent = result.totalAdsBlocked || 0;
         document.getElementById('popupsCounter').textContent = result.totalPopupsBlocked || 0;
     });
 }
 
-// Tab switching functionality
 function setupTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-
-    tabButtons.forEach(button => {
+    document.querySelectorAll('.tab-button').forEach((button) => {
         button.addEventListener('click', () => {
-            // Remove active class from all buttons and content
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-            // Add active class to clicked button
+            document.querySelectorAll('.tab-button').forEach((btn) => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach((content) => content.classList.remove('active'));
             button.classList.add('active');
-
-            // Show the corresponding content
-            const tabId = button.getAttribute('data-tab');
-            document.getElementById(tabId).classList.add('active');
+            document.getElementById(button.dataset.tab).classList.add('active');
         });
     });
 }
 
-// Load and display blocked domains
-function loadBlockedDomains() {
-    chrome.storage.local.get(['blockedDomains'], function (result) {
-        const blockedSitesList = document.getElementById('blockedSitesList');
-        if (!blockedSitesList) {
-            console.error("Could not find blockedSitesList element");
-            return;
-        }
-
-        const emptyMessage = document.getElementById('emptyBlockedMessage');
-        const blockedDomains = result.blockedDomains || {};
-
-        // Clear previous content except the empty message
-        if (blockedSitesList && emptyMessage) {
-            while (blockedSitesList.firstChild && blockedSitesList.firstChild !== emptyMessage) {
-                blockedSitesList.removeChild(blockedSitesList.firstChild);
-            }
-        }
-
-        const domains = Object.keys(blockedDomains).filter(domain => blockedDomains[domain] === true);
-
-        if (domains.length === 0) {
-            if (emptyMessage) emptyMessage.style.display = 'block';
-        } else {
-            if (emptyMessage) emptyMessage.style.display = 'none';
-            domains.sort().forEach(domain => {
-                const siteItem = createSiteItem(domain, 'allow', 'Allow');
-                if (siteItem && blockedSitesList && emptyMessage) {
-                    blockedSitesList.insertBefore(siteItem, emptyMessage);
-                }
-            });
-        }
-    });
-}
-
-// Load and display allowed domains
-function loadAllowedDomains() {
-    chrome.storage.local.get(['allowedDomains'], function (result) {
-        const allowedSitesList = document.getElementById('allowedSitesList');
-        if (!allowedSitesList) {
-            console.error("Could not find allowedSitesList element");
-            return;
-        }
-
-        const emptyMessage = document.getElementById('emptyAllowedMessage');
-        const allowedDomains = result.allowedDomains || {};
-
-        // Clear previous content except the empty message
-        if (allowedSitesList && emptyMessage) {
-            while (allowedSitesList.firstChild && allowedSitesList.firstChild !== emptyMessage) {
-                allowedSitesList.removeChild(allowedSitesList.firstChild);
-            }
-        }
-
-        const domains = Object.keys(allowedDomains).filter(domain => allowedDomains[domain] === true);
-
-        if (domains.length === 0) {
-            if (emptyMessage) emptyMessage.style.display = 'block';
-        } else {
-            if (emptyMessage) emptyMessage.style.display = 'none';
-            domains.sort().forEach(domain => {
-                const siteItem = createSiteItem(domain, 'block', 'Block', '#f44336');
-                if (siteItem && allowedSitesList && emptyMessage) {
-                    allowedSitesList.insertBefore(siteItem, emptyMessage);
-                }
-            });
-        }
-    });
-}
-
-// Helper function to create a site list item
-function createSiteItem(domain, action, buttonText, buttonColor = '#4CAF50') {
+function createSiteItem(domain, action, buttonText, buttonClass) {
     const siteItem = document.createElement('div');
     siteItem.className = 'site-item';
 
     const domainText = document.createElement('span');
     domainText.className = 'site-domain';
     domainText.textContent = domain;
-    domainText.title = domain; // Add tooltip for long domains
+    domainText.title = domain;
 
     const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'toggle-btn';
-    toggleBtn.style.backgroundColor = buttonColor;
+    toggleBtn.className = `toggle-btn ${buttonClass}`;
     toggleBtn.textContent = buttonText;
     toggleBtn.dataset.domain = domain;
     toggleBtn.dataset.action = action;
     toggleBtn.addEventListener('click', toggleDomainStatus);
 
-    siteItem.appendChild(domainText);
-    siteItem.appendChild(toggleBtn);
+    siteItem.append(domainText, toggleBtn);
     return siteItem;
 }
 
+function renderDomainList(listElementId, emptyElementId, domains, config) {
+    const list = document.getElementById(listElementId);
+    const empty = document.getElementById(emptyElementId);
 
-// Toggle domain between blocked and allowed lists
+    while (list.firstChild && list.firstChild !== empty) {
+        list.removeChild(list.firstChild);
+    }
+
+    if (!domains.length) {
+        empty.style.display = 'block';
+        return;
+    }
+
+    empty.style.display = 'none';
+    domains.forEach((domain) => {
+        const item = createSiteItem(domain, config.action, config.buttonText, config.buttonClass);
+        list.insertBefore(item, empty);
+    });
+}
+
+function loadDomains() {
+    chrome.storage.local.get(['blockedDomains', 'allowedDomains'], ({ blockedDomains = {}, allowedDomains = {} }) => {
+        const blocked = Object.keys(blockedDomains).filter((domain) => blockedDomains[domain]).sort();
+        const allowed = Object.keys(allowedDomains).filter((domain) => allowedDomains[domain]).sort();
+
+        renderDomainList('blockedSitesList', 'emptyBlockedMessage', blocked, {
+            action: 'allow',
+            buttonText: 'Allow',
+            buttonClass: 'allow-btn'
+        });
+
+        renderDomainList('allowedSitesList', 'emptyAllowedMessage', allowed, {
+            action: 'block',
+            buttonText: 'Block',
+            buttonClass: 'block-btn'
+        });
+    });
+}
+
 function toggleDomainStatus(event) {
     const domain = event.target.dataset.domain;
-    const action = event.target.dataset.action; // 'allow' or 'block'
+    const action = event.target.dataset.action;
 
-    if (!domain) return;
-
-    chrome.storage.local.get(['blockedDomains', 'allowedDomains'], function (result) {
-        let blockedDomains = result.blockedDomains || {};
-        let allowedDomains = result.allowedDomains || {};
-
-        if (action === 'allow') { // Means: move from blocked to allowed
+    chrome.storage.local.get(['blockedDomains', 'allowedDomains'], ({ blockedDomains = {}, allowedDomains = {} }) => {
+        if (action === 'allow') {
             delete blockedDomains[domain];
             allowedDomains[domain] = true;
-        } else if (action === 'block') { // Means: move from allowed to blocked
+        } else if (action === 'block') {
             delete allowedDomains[domain];
             blockedDomains[domain] = true;
         }
 
-        chrome.storage.local.set({ blockedDomains, allowedDomains }, function () {
-            if (chrome.runtime.lastError) {
-                console.error("Error saving domain status:", chrome.runtime.lastError);
-                return;
-            }
-            // Refresh both lists
-            loadBlockedDomains();
-            loadAllowedDomains();
+        chrome.storage.local.set({ blockedDomains, allowedDomains }, () => {
+            loadDomains();
+            refreshCurrentSiteStatus();
         });
     });
 }
 
-// Add a domain to a specific list (blocked or allowed)
 function addDomainToList(listType) {
-    const inputId = listType === 'blocked' ? 'addBlockedDomainInput' : 'addAllowedDomainInput';
-    const inputElement = document.getElementById(inputId);
-    let domain = inputElement.value.trim().toLowerCase();
+    const input = document.getElementById(listType === 'blocked' ? 'addBlockedDomainInput' : 'addAllowedDomainInput');
+    const domain = normalizeDomain(input.value);
 
     if (!domain) {
-        alert("Please enter a domain name.");
+        window.alert('Please enter a valid domain (e.g., example.com).');
         return;
     }
 
-    // Basic validation: remove protocol, paths, etc.
-    try {
-        // If it includes http/https, try parsing, otherwise assume it's just the domain
-        if (domain.includes('://')) {
-            domain = new URL(domain).hostname;
-        }
-        // Remove www. if present for consistency, unless it's the only part
-        if (domain.startsWith('www.') && domain.split('.').length > 2) {
-            domain = domain.substring(4);
-        }
-    } catch (e) {
-        // Handle cases like "invalid url" or just plain strings
-        // Allow simple strings like "example.com"
-        if (!domain.includes('.')) { // Very basic check
-            alert("Invalid domain format. Please enter a valid domain (e.g., example.com).");
-            return;
-        }
-    }
-
-
-    if (!domain) { // Check again after potential stripping
-        alert("Invalid domain format.");
-        return;
-    }
-
-
-    chrome.storage.local.get(['blockedDomains', 'allowedDomains'], function (result) {
-        let blockedDomains = result.blockedDomains || {};
-        let allowedDomains = result.allowedDomains || {};
-
-        // Check if already in the other list
-        if (listType === 'blocked' && allowedDomains[domain]) {
-            delete allowedDomains[domain]; // Remove from allowed if adding to blocked
-        } else if (listType === 'allowed' && blockedDomains[domain]) {
-            delete blockedDomains[domain]; // Remove from blocked if adding to allowed
-        }
-
-        // Add to the target list
+    chrome.storage.local.get(['blockedDomains', 'allowedDomains'], ({ blockedDomains = {}, allowedDomains = {} }) => {
         if (listType === 'blocked') {
             blockedDomains[domain] = true;
+            delete allowedDomains[domain];
         } else {
             allowedDomains[domain] = true;
+            delete blockedDomains[domain];
         }
 
-        chrome.storage.local.set({ blockedDomains, allowedDomains }, function () {
-            if (chrome.runtime.lastError) {
-                console.error("Error adding domain:", chrome.runtime.lastError);
-                alert("Failed to add domain.");
-                return;
-            }
-            inputElement.value = ''; // Clear input field
-            // Refresh lists
-            loadBlockedDomains();
-            loadAllowedDomains();
+        chrome.storage.local.set({ blockedDomains, allowedDomains }, () => {
+            input.value = '';
+            loadDomains();
+            refreshCurrentSiteStatus();
         });
     });
 }
 
-
-// Completely rewritten initialization code to ensure proper DOM manipulation
-document.addEventListener('DOMContentLoaded', function () {
-    // First update the UI elements that always exist
-    updateCounters();
-    setupTabs();
-
-    // Now handle the domain lists with proper element checks
-    setTimeout(function () {
-        // Give a small delay to ensure DOM is truly ready
-        try {
-            loadBlockedDomains();
-            loadAllowedDomains();
-
-            // Direct DOM element references with explicit null checks
-            const addBlockedDomainBtn = document.getElementById('addBlockedDomainBtn');
-            const addAllowedDomainBtn = document.getElementById('addAllowedDomainBtn');
-            const addBlockedDomainInput = document.getElementById('addBlockedDomainInput');
-            const addAllowedDomainInput = document.getElementById('addAllowedDomainInput');
-
-            // Add blocked domain button click handler
-            if (addBlockedDomainBtn) {
-                // Use onclick instead of addEventListener for more reliability
-                addBlockedDomainBtn.onclick = function () {
-                    addDomainToList('blocked');
-                };
-            } else {
-                console.error("Could not find addBlockedDomainBtn");
+function updateSetting(settingKey, value) {
+    chrome.storage.local.get(['settings'], ({ settings = {} }) => {
+        chrome.storage.local.set({
+            settings: {
+                enabled: true,
+                strictMode: false,
+                ...settings,
+                [settingKey]: value
             }
+        });
+    });
+}
 
-            // Add allowed domain button click handler
-            if (addAllowedDomainBtn) {
-                addAllowedDomainBtn.onclick = function () {
-                    addDomainToList('allowed');
-                };
-            } else {
-                console.error("Could not find addAllowedDomainBtn");
-            }
+async function refreshCurrentSiteStatus() {
+    const currentDomain = await getActiveTabDomain();
+    const statusEl = document.getElementById('currentSiteStatus');
+    const toggleBtn = document.getElementById('toggleCurrentSiteBtn');
 
-            // Add Enter key event listeners for text inputs
-            if (addBlockedDomainInput) {
-                addBlockedDomainInput.onkeyup = function (event) {
-                    if (event.key === 'Enter') {
-                        addDomainToList('blocked');
-                    }
-                };
-            }
+    if (!currentDomain) {
+        statusEl.textContent = 'Not available on this page';
+        toggleBtn.disabled = true;
+        return;
+    }
 
-            if (addAllowedDomainInput) {
-                addAllowedDomainInput.onkeyup = function (event) {
-                    if (event.key === 'Enter') {
-                        addDomainToList('allowed');
-                    }
-                };
-            }
-        } catch (e) {
-            console.error("Error initializing domains UI:", e);
+    chrome.storage.local.get(['allowedDomains'], ({ allowedDomains = {} }) => {
+        const isAllowed = Boolean(allowedDomains[currentDomain]);
+        statusEl.textContent = isAllowed ? `${currentDomain} is allowed` : `${currentDomain} is protected`;
+        toggleBtn.disabled = false;
+        toggleBtn.textContent = isAllowed ? 'Enable on this site' : 'Pause on this site';
+        toggleBtn.dataset.domain = currentDomain;
+        toggleBtn.dataset.mode = isAllowed ? 'enable' : 'pause';
+    });
+}
+
+function toggleCurrentSite() {
+    const toggleBtn = document.getElementById('toggleCurrentSiteBtn');
+    const domain = toggleBtn.dataset.domain;
+    if (!domain) return;
+
+    chrome.storage.local.get(['allowedDomains', 'blockedDomains'], ({ allowedDomains = {}, blockedDomains = {} }) => {
+        if (toggleBtn.dataset.mode === 'pause') {
+            allowedDomains[domain] = true;
+            delete blockedDomains[domain];
+        } else {
+            delete allowedDomains[domain];
         }
-    }, 100);
 
-    // Listen for storage changes
+        chrome.storage.local.set({ allowedDomains, blockedDomains }, () => {
+            loadDomains();
+            refreshCurrentSiteStatus();
+        });
+    });
+}
+
+function bindEvents() {
+    document.getElementById('addBlockedDomainBtn').addEventListener('click', () => addDomainToList('blocked'));
+    document.getElementById('addAllowedDomainBtn').addEventListener('click', () => addDomainToList('allowed'));
+
+    ['addBlockedDomainInput', 'addAllowedDomainInput'].forEach((id) => {
+        document.getElementById(id).addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                addDomainToList(id.includes('Blocked') ? 'blocked' : 'allowed');
+            }
+        });
+    });
+
+    document.getElementById('enabledToggle').addEventListener('change', (event) => {
+        updateSetting('enabled', event.target.checked);
+        document.getElementById('statusBadge').textContent = event.target.checked ? 'Active' : 'Paused';
+    });
+
+    document.getElementById('strictModeToggle').addEventListener('change', (event) => {
+        updateSetting('strictMode', event.target.checked);
+    });
+
+    document.getElementById('toggleCurrentSiteBtn').addEventListener('click', toggleCurrentSite);
+}
+
+function loadSettings() {
+    chrome.storage.local.get(['settings'], ({ settings = {} }) => {
+        const merged = { enabled: true, strictMode: false, ...settings };
+
+        document.getElementById('enabledToggle').checked = merged.enabled;
+        document.getElementById('strictModeToggle').checked = merged.strictMode;
+        document.getElementById('statusBadge').textContent = merged.enabled ? 'Active' : 'Paused';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    setupTabs();
+    bindEvents();
+    updateCounters();
+    loadSettings();
+    loadDomains();
+    await refreshCurrentSiteStatus();
+
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local') {
-            if (changes.totalAdsBlocked || changes.totalPopupsBlocked) {
-                updateCounters();
-            }
-            if (changes.blockedDomains) {
-                loadBlockedDomains();
-            }
-            if (changes.allowedDomains) {
-                loadAllowedDomains();
-            }
+        if (area !== 'local') return;
+
+        if (changes.totalAdsBlocked || changes.totalPopupsBlocked) {
+            updateCounters();
+        }
+
+        if (changes.allowedDomains || changes.blockedDomains) {
+            loadDomains();
+            refreshCurrentSiteStatus();
+        }
+
+        if (changes.settings) {
+            loadSettings();
         }
     });
 });

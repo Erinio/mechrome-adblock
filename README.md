@@ -1,63 +1,47 @@
 # MeChrome Ad Blocker
 
-A powerful and lightweight Chrome extension that blocks ads, trackers, and unwanted popups to provide a seamless browsing experience.
+A lightweight Manifest V3 Chrome extension focused on practical blocking:
 
-## Features
+- Network-level blocking via `declarativeNetRequest` rules.
+- YouTube DOM/video ad cleanup for page-level ad surfaces.
+- Per-site allow/block controls.
+- Optional strict tracker blocking mode.
+- Per-tab blocked-request badge + lifetime stats.
 
-- **Ad Blocking**: Blocks common advertisement networks and trackers
-- **YouTube Ad Blocking**: Specialized functionality to block YouTube video ads and page ads
-- **Popup Blocking**: Prevents annoying popup windows from interrupting your browsing
-- **Site Management**: Easily create whitelists and blacklists for specific domains
-- **Statistics**: Track how many ads and popups have been blocked
-- **Per-site Counter**: Shows how many ads are blocked on the current site
+## What’s New (v1.1.0)
+
+- Reworked background logic to use `declarativeNetRequest.onRuleMatchedDebug` for accurate block counting.
+- Added managed dynamic rules that sync from popup settings:
+  - **Allow site** -> pauses protection for that site.
+  - **Block site** -> hard-blocks requests for that domain.
+  - **Strict mode** -> adds an additional tracker-focused rule set.
+- Added popup controls for:
+  - Global on/off toggle.
+  - Strict mode toggle.
+  - One-click “Pause on this site / Enable on this site”.
+- Rewrote YouTube script to reduce duplicated timers/observers and improve stability on SPA navigation.
+- Removed unused permissions from the manifest (`notifications`, `webRequest`).
 
 ## Installation
 
-### Manual Installation
+1. Clone/download this repository.
+2. Open `chrome://extensions/` in Chrome.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select this folder.
 
-1. Download or clone this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" in the top-right corner
-4. Click "Load unpacked" and select the extension directory
-5. The extension should now be installed and active
+## Project Structure
 
-## Usage
+- `manifest.json` – extension metadata and permissions.
+- `background.js` – dynamic rule sync, counters, and badge state.
+- `popup.html` / `popup.js` – settings and domain management UI.
+- `rules.json` – baseline static block rules.
+- `youtube-script.js` / `youtube-ad-blocker.css` – YouTube ad cleanup.
 
-### Blocking Ads and Popups
+## Notes
 
-The extension works automatically in the background to block ads and popups. You can see the number of ads blocked on the current page displayed on the extension icon.
-
-### Managing Allowed/Blocked Sites
-
-1. Click on the extension icon to open the popup
-2. Navigate to either the "Blocked Sites" or "Allowed Sites" tab
-3. Add domains that you want to explicitly block or allow
-4. Toggle sites between blocked and allowed states using the buttons
-
-## Development
-
-### Project Structure
-
-- `manifest.json` - Extension configuration
-- `background.js` - Background service worker that handles ad blocking
-- `popup.html/js` - User interface for the extension
-- `rules.json` - Declarative rules for network requests
-- `youtube-script.js` - Content script for YouTube-specific ad blocking
-- `youtube-ad-blocker.css` - CSS rules to hide YouTube ad elements
-
-### Building from Source
-
-No build step is required. The extension can be loaded directly into Chrome from the source files.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- This project intentionally avoids heavy remote list downloads so it can run fully local/offline.
+- You can expand strict-mode domains in `background.js` (`STRICT_TRACKER_DOMAINS`).
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Thanks to all the open-source ad blocking projects that inspired this extension
-- Special thanks to contributors who help improve and maintain the filter lists
+MIT. See `LICENSE`.
