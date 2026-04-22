@@ -41,7 +41,3 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 
 - This project intentionally avoids heavy remote list downloads so it can run fully local/offline.
 - You can expand strict-mode domains in `background.js` (`STRICT_TRACKER_DOMAINS`).
-
-## License
-
-MIT. See `LICENSE`.
