@@ -8,6 +8,26 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 - Optional strict tracker blocking mode.
 - Per-tab blocked-request badge + lifetime stats.
 
+## What’s New (v1.3.0)
+
+- Added **Aggressive blocklist mode (beta)**:
+  - Ships a second static ruleset (`rules-strict.json`) with broader ad/tracker coverage.
+  - Toggle on/off from popup without reinstalling extension.
+- Added **cross-browser packaging manifests**:
+  - `manifest.firefox.json` for Firefox (with gecko settings).
+  - `manifest.opera.json` for Opera distribution.
+
+## What’s New (v1.2.0)
+
+- Added **temporary per-site compatibility mode**:
+  - One-click **Allow 30 min** from popup for quick site-unbreak.
+  - Auto-expires and re-enables protection without manual cleanup.
+- Added **tracking-link cleanup mode** (enabled by default):
+  - Strips common tracking query params (like `utm_*`, `gclid`, `fbclid`) from top-level navigations.
+  - Improves privacy while reducing breakage vs hard-blocking.
+- Improved strict mode safety:
+  - Strict tracker blocks now apply as **third-party only** to reduce false positives.
+
 ## What’s New (v1.1.0)
 
 - Reworked background logic to use `declarativeNetRequest.onRuleMatchedDebug` for accurate block counting.
@@ -29,6 +49,11 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 3. Enable **Developer mode**.
 4. Click **Load unpacked** and select this folder.
 
+### Firefox / Opera
+
+- Firefox: load with `manifest.firefox.json` when packaging/signing.
+- Opera: use `manifest.opera.json` (Chromium-compatible build).
+
 ## Project Structure
 
 - `manifest.json` – extension metadata and permissions.
@@ -41,3 +66,6 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 
 - This project intentionally avoids heavy remote list downloads so it can run fully local/offline.
 - You can expand strict-mode domains in `background.js` (`STRICT_TRACKER_DOMAINS`).
+- Safer strategy used by default:
+  - Use deterministic network blocks for known ad/tracker domains.
+  - Prefer URL cleanup + temporary per-site allow over globally weakening protections.

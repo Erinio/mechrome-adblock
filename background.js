@@ -17,8 +17,37 @@ const RESOURCE_TYPES = [
 const RULE_ID_BASE = {
     whitelist: 200000,
     blockedSites: 210000,
-    strictTrackers: 220000
+    strictTrackers: 220000,
+    queryCleanup: 230000
 };
+
+const TEMP_ALLOW_MINUTES_DEFAULT = 30;
+
+const CLEAN_QUERY_PARAMS = [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'utm_id',
+    'utm_name',
+    'utm_reader',
+    'utm_referrer',
+    'utm_social',
+    'utm_social-type',
+    'gclid',
+    'dclid',
+    'fbclid',
+    'gbraid',
+    'wbraid',
+    'igshid',
+    'mc_cid',
+    'mc_eid',
+    'mkt_tok',
+    'msclkid',
+    'ref',
+    'ref_src'
+];
 
 const STRICT_TRACKER_DOMAINS = [
     'google-analytics.com',
@@ -139,9 +168,12 @@ async function ensureStorageDefaults() {
         totalPopupsBlocked: 0,
         blockedDomains: {},
         allowedDomains: {},
+        temporaryAllowedDomains: {},
         settings: {
             enabled: true,
-            strictMode: false
+            strictMode: false,
+            cleanQueryTracking: true,
+            aggressiveMode: false
         }
     };
 
@@ -160,7 +192,27 @@ async function ensureStorageDefaults() {
     return nextState;
 }
 
-function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings = {} }) {
+function pruneTemporaryAllowedDomains(temporaryAllowedDomains = {}, now = Date.now()) {
+    const next = {};
+    let changed = false;
+
+    Object.entries(temporaryAllowedDomains).forEach(([domain, expiresAt]) => {
+        const normalized = normalizeDomain(domain);
+        if (!normalized || !Number.isFinite(expiresAt) || expiresAt <= now) {
+            changed = true;
+            return;
+        }
+
+        if (normalized !== domain) {
+            changed = true;
+        }
+        next[normalized] = expiresAt;
+    });
+
+    return { next, changed };
+}
+
+function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, temporaryAllowedDomains = {}, settings = {} }) {
     const rules = [];
     const enabled = settings.enabled !== false;
 
@@ -173,7 +225,13 @@ function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings 
         .filter(Boolean)
         .sort();
 
-    for (const domain of allowed) {
+    const tempAllowed = Object.keys(temporaryAllowedDomains)
+        .map(normalizeDomain)
+        .filter(Boolean)
+        .sort();
+    const effectiveAllowed = [...new Set([...allowed, ...tempAllowed])];
+
+    for (const domain of effectiveAllowed) {
         rules.push({
             id: RULE_ID_BASE.whitelist + offset,
             priority: 1000,
@@ -181,6 +239,20 @@ function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings 
             condition: {
                 initiatorDomains: [domain],
                 resourceTypes: RESOURCE_TYPES.filter((type) => type !== 'main_frame')
+            }
+        });
+        offset += 1;
+    }
+
+    // If a site is temporarily/permanently allowed, stop main-frame URL cleanup there too.
+    for (const domain of effectiveAllowed) {
+        rules.push({
+            id: RULE_ID_BASE.whitelist + 10000 + offset,
+            priority: 1000,
+            action: { type: 'allow' },
+            condition: {
+                requestDomains: [domain],
+                resourceTypes: ['main_frame']
             }
         });
         offset += 1;
@@ -214,9 +286,31 @@ function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings 
                 action: { type: 'block' },
                 condition: {
                     urlFilter: `||${domain}^`,
-                    resourceTypes: RESOURCE_TYPES.filter((type) => type !== 'main_frame')
+                    resourceTypes: RESOURCE_TYPES.filter((type) => type !== 'main_frame'),
+                    domainType: 'thirdParty'
                 }
             });
+        });
+    }
+
+    if (settings.cleanQueryTracking !== false) {
+        rules.push({
+            id: RULE_ID_BASE.queryCleanup,
+            priority: 1,
+            action: {
+                type: 'redirect',
+                redirect: {
+                    transform: {
+                        queryTransform: {
+                            removeParams: CLEAN_QUERY_PARAMS
+                        }
+                    }
+                }
+            },
+            condition: {
+                urlFilter: '|http',
+                resourceTypes: ['main_frame']
+            }
         });
     }
 
@@ -224,12 +318,26 @@ function buildManagedRules({ blockedDomains = {}, allowedDomains = {}, settings 
 }
 
 function isManagedRuleId(id) {
-    return id >= RULE_ID_BASE.whitelist && id < RULE_ID_BASE.strictTrackers + 20000;
+    return id >= RULE_ID_BASE.whitelist && id < RULE_ID_BASE.queryCleanup + 5000;
 }
 
 async function syncDynamicRules() {
-    const state = await chrome.storage.local.get(['blockedDomains', 'allowedDomains', 'settings']);
-    const desiredRules = buildManagedRules(state);
+    const now = Date.now();
+    const state = await chrome.storage.local.get([
+        'blockedDomains',
+        'allowedDomains',
+        'temporaryAllowedDomains',
+        'settings'
+    ]);
+    const { next, changed } = pruneTemporaryAllowedDomains(state.temporaryAllowedDomains, now);
+    if (changed) {
+        await chrome.storage.local.set({ temporaryAllowedDomains: next });
+    }
+
+    const desiredRules = buildManagedRules({
+        ...state,
+        temporaryAllowedDomains: next
+    });
     const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
 
     const removeRuleIds = existingRules.filter((rule) => isManagedRuleId(rule.id)).map((rule) => rule.id);
@@ -237,6 +345,25 @@ async function syncDynamicRules() {
     await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds,
         addRules: desiredRules
+    });
+}
+
+async function syncStaticRulesets() {
+    const { settings = {} } = await chrome.storage.local.get(['settings']);
+    const aggressiveEnabled = settings.aggressiveMode === true;
+    const desiredRulesets = aggressiveEnabled ? ['ruleset_aggressive'] : [];
+
+    const enabled = await chrome.declarativeNetRequest.getEnabledRulesets();
+    const shouldEnable = desiredRulesets.filter((id) => !enabled.includes(id));
+    const shouldDisable = enabled.filter((id) => id === 'ruleset_aggressive' && !desiredRulesets.includes(id));
+
+    if (!shouldEnable.length && !shouldDisable.length) {
+        return;
+    }
+
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+        enableRulesetIds: shouldEnable,
+        disableRulesetIds: shouldDisable
     });
 }
 
@@ -258,20 +385,28 @@ function resetTabCounterForNavigation(tabId, url) {
 chrome.runtime.onInstalled.addListener(async () => {
     await ensureStorageDefaults();
     await syncDynamicRules();
+    await syncStaticRulesets();
     chrome.action.setBadgeText({ text: '' });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
     await ensureStorageDefaults();
     await syncDynamicRules();
+    await syncStaticRulesets();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
 
-    if (changes.settings || changes.blockedDomains || changes.allowedDomains) {
+    if (changes.settings || changes.blockedDomains || changes.allowedDomains || changes.temporaryAllowedDomains) {
         syncDynamicRules().catch((error) => {
             console.error('Failed to sync dynamic rules:', error);
+        });
+    }
+
+    if (changes.settings) {
+        syncStaticRulesets().catch((error) => {
+            console.error('Failed to sync static rulesets:', error);
         });
     }
 });
@@ -297,16 +432,39 @@ chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((details) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'temporary-allow-site') {
+        const domain = normalizeDomain(message.domain);
+        if (!domain) {
+            sendResponse({ ok: false, reason: 'invalid-domain' });
+            return false;
+        }
+
+        const minutes = Number.isFinite(message.minutes) && message.minutes > 0 ? message.minutes : TEMP_ALLOW_MINUTES_DEFAULT;
+        const ttl = Math.round(minutes * 60 * 1000);
+
+        chrome.storage.local.get(['temporaryAllowedDomains', 'blockedDomains'], ({ temporaryAllowedDomains = {}, blockedDomains = {} }) => {
+            temporaryAllowedDomains[domain] = Date.now() + ttl;
+            delete blockedDomains[domain];
+            chrome.storage.local.set({ temporaryAllowedDomains, blockedDomains }, () => {
+                sendResponse({ ok: true, domain, expiresAt: temporaryAllowedDomains[domain] });
+            });
+        });
+        return true;
+    }
+
     if (message?.type === 'get-state') {
-        chrome.storage.local.get(['settings', 'allowedDomains', 'blockedDomains'], (state) => {
+        chrome.storage.local.get(['settings', 'allowedDomains', 'blockedDomains', 'temporaryAllowedDomains'], (state) => {
             sendResponse({
                 settings: {
                     enabled: true,
                     strictMode: false,
+                    cleanQueryTracking: true,
+                    aggressiveMode: false,
                     ...(state.settings || {})
                 },
                 allowedDomains: state.allowedDomains || {},
-                blockedDomains: state.blockedDomains || {}
+                blockedDomains: state.blockedDomains || {},
+                temporaryAllowedDomains: state.temporaryAllowedDomains || {}
             });
         });
         return true;
