@@ -12,6 +12,7 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 
 - Added **Aggressive blocklist mode (beta)**:
   - Ships a second static ruleset (`rules-strict.json`) with broader ad/tracker coverage.
+  - Uses a safer anti-breakage posture inspired by uBO "easy mode": third-party focused network filtering and curated lists, rather than blanket first-party blocking.
   - Toggle on/off from popup without reinstalling extension.
 - Added **cross-browser packaging manifests**:
   - `manifest.firefox.json` for Firefox (with gecko settings).
@@ -60,6 +61,8 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 - `background.js` – dynamic rule sync, counters, and badge state.
 - `popup.html` / `popup.js` – settings and domain management UI.
 - `rules.json` – baseline static block rules.
+- `rules-strict.json` – optional aggressive static ruleset.
+- `scripts/build-aggressive-ruleset.mjs` – ruleset compiler (EasyList/EasyPrivacy/uAssets inputs + local snapshot fallback).
 - `youtube-script.js` / `youtube-ad-blocker.css` – YouTube ad cleanup.
 
 ## Notes
@@ -69,3 +72,18 @@ A lightweight Manifest V3 Chrome extension focused on practical blocking:
 - Safer strategy used by default:
   - Use deterministic network blocks for known ad/tracker domains.
   - Prefer URL cleanup + temporary per-site allow over globally weakening protections.
+
+## Aggressive Ruleset Build
+
+Run this to rebuild `rules-strict.json`:
+
+```bash
+node scripts/build-aggressive-ruleset.mjs
+```
+
+The script tries these upstream sources first:
+- EasyPrivacy
+- EasyList ad server rules
+- uAssets privacy filters
+
+If network is unavailable, it falls back to `scripts/source-snapshot.txt`.
