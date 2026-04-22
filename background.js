@@ -357,6 +357,14 @@ async function syncStaticRulesets() {
     const shouldEnable = desiredRulesets.filter((id) => !enabled.includes(id));
     const shouldDisable = enabled.filter((id) => id === 'ruleset_aggressive' && !desiredRulesets.includes(id));
 
+    if (shouldEnable.length) {
+        const available = await chrome.declarativeNetRequest.getAvailableStaticRuleCount();
+        if (available <= 0) {
+            console.warn('Aggressive ruleset requested but no static rule budget is available.');
+            return;
+        }
+    }
+
     if (!shouldEnable.length && !shouldDisable.length) {
         return;
     }
