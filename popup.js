@@ -159,6 +159,8 @@ function updateSetting(settingKey, value) {
             settings: {
                 enabled: true,
                 strictMode: false,
+                cleanQueryTracking: true,
+                aggressiveMode: false,
                 ...settings,
                 [settingKey]: value
             }
@@ -166,24 +168,44 @@ function updateSetting(settingKey, value) {
     });
 }
 
+function formatDuration(ms) {
+    const safeMs = Math.max(0, ms);
+    const mins = Math.ceil(safeMs / (60 * 1000));
+    if (mins < 60) return `${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const restMins = mins % 60;
+    return restMins > 0 ? `${hours}h ${restMins}m` : `${hours}h`;
+}
+
 async function refreshCurrentSiteStatus() {
     const currentDomain = await getActiveTabDomain();
     const statusEl = document.getElementById('currentSiteStatus');
     const toggleBtn = document.getElementById('toggleCurrentSiteBtn');
+    const tempAllowBtn = document.getElementById('tempAllowCurrentSiteBtn');
 
     if (!currentDomain) {
         statusEl.textContent = 'Not available on this page';
         toggleBtn.disabled = true;
+        tempAllowBtn.disabled = true;
         return;
     }
 
-    chrome.storage.local.get(['allowedDomains'], ({ allowedDomains = {} }) => {
+    chrome.storage.local.get(['allowedDomains', 'temporaryAllowedDomains'], ({ allowedDomains = {}, temporaryAllowedDomains = {} }) => {
+        const expiresAt = temporaryAllowedDomains[currentDomain];
+        const temporaryActive = Number.isFinite(expiresAt) && expiresAt > Date.now();
         const isAllowed = Boolean(allowedDomains[currentDomain]);
-        statusEl.textContent = isAllowed ? `${currentDomain} is allowed` : `${currentDomain} is protected`;
+        statusEl.textContent = temporaryActive
+            ? `${currentDomain} is temporarily allowed (${formatDuration(expiresAt - Date.now())} left)`
+            : isAllowed
+                ? `${currentDomain} is allowed`
+                : `${currentDomain} is protected`;
         toggleBtn.disabled = false;
-        toggleBtn.textContent = isAllowed ? 'Enable on this site' : 'Pause on this site';
+        tempAllowBtn.disabled = temporaryActive;
+        tempAllowBtn.textContent = temporaryActive ? 'Temporary allow active' : 'Allow 30 min';
+        toggleBtn.textContent = isAllowed || temporaryActive ? 'Enable on this site' : 'Pause on this site';
         toggleBtn.dataset.domain = currentDomain;
-        toggleBtn.dataset.mode = isAllowed ? 'enable' : 'pause';
+        tempAllowBtn.dataset.domain = currentDomain;
+        toggleBtn.dataset.mode = isAllowed || temporaryActive ? 'enable' : 'pause';
     });
 }
 
@@ -192,18 +214,34 @@ function toggleCurrentSite() {
     const domain = toggleBtn.dataset.domain;
     if (!domain) return;
 
-    chrome.storage.local.get(['allowedDomains', 'blockedDomains'], ({ allowedDomains = {}, blockedDomains = {} }) => {
+    chrome.storage.local.get(['allowedDomains', 'blockedDomains', 'temporaryAllowedDomains'], ({ allowedDomains = {}, blockedDomains = {}, temporaryAllowedDomains = {} }) => {
         if (toggleBtn.dataset.mode === 'pause') {
             allowedDomains[domain] = true;
             delete blockedDomains[domain];
+            delete temporaryAllowedDomains[domain];
         } else {
             delete allowedDomains[domain];
         }
 
-        chrome.storage.local.set({ allowedDomains, blockedDomains }, () => {
+        chrome.storage.local.set({ allowedDomains, blockedDomains, temporaryAllowedDomains }, () => {
             loadDomains();
             refreshCurrentSiteStatus();
         });
+    });
+}
+
+function temporaryAllowCurrentSite() {
+    const btn = document.getElementById('tempAllowCurrentSiteBtn');
+    const domain = btn.dataset.domain;
+    if (!domain) return;
+
+    chrome.runtime.sendMessage({ type: 'temporary-allow-site', domain, minutes: 30 }, (response) => {
+        if (!response?.ok) {
+            window.alert('Could not apply temporary allow. Please try again.');
+            return;
+        }
+        refreshCurrentSiteStatus();
+        loadDomains();
     });
 }
 
@@ -228,15 +266,26 @@ function bindEvents() {
         updateSetting('strictMode', event.target.checked);
     });
 
+    document.getElementById('cleanQueryTrackingToggle').addEventListener('change', (event) => {
+        updateSetting('cleanQueryTracking', event.target.checked);
+    });
+
+    document.getElementById('aggressiveModeToggle').addEventListener('change', (event) => {
+        updateSetting('aggressiveMode', event.target.checked);
+    });
+
     document.getElementById('toggleCurrentSiteBtn').addEventListener('click', toggleCurrentSite);
+    document.getElementById('tempAllowCurrentSiteBtn').addEventListener('click', temporaryAllowCurrentSite);
 }
 
 function loadSettings() {
     chrome.storage.local.get(['settings'], ({ settings = {} }) => {
-        const merged = { enabled: true, strictMode: false, ...settings };
+        const merged = { enabled: true, strictMode: false, cleanQueryTracking: true, aggressiveMode: false, ...settings };
 
         document.getElementById('enabledToggle').checked = merged.enabled;
         document.getElementById('strictModeToggle').checked = merged.strictMode;
+        document.getElementById('cleanQueryTrackingToggle').checked = merged.cleanQueryTracking;
+        document.getElementById('aggressiveModeToggle').checked = merged.aggressiveMode;
         document.getElementById('statusBadge').textContent = merged.enabled ? 'Active' : 'Paused';
     });
 }

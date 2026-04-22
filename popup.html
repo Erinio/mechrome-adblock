@@ -251,8 +251,19 @@
             <label for="strictModeToggle">Strict tracker blocking</label>
             <input class="toggle" id="strictModeToggle" type="checkbox">
         </div>
+        <div class="setting-row">
+            <label for="cleanQueryTrackingToggle">Strip tracking params from links</label>
+            <input class="toggle" id="cleanQueryTrackingToggle" type="checkbox" checked>
+        </div>
+        <div class="setting-row">
+            <label for="aggressiveModeToggle">Aggressive blocklist (beta)</label>
+            <input class="toggle" id="aggressiveModeToggle" type="checkbox">
+        </div>
         <div class="site-actions">
             <button id="toggleCurrentSiteBtn" class="action-btn">Pause on this site</button>
+            <button id="tempAllowCurrentSiteBtn" class="action-btn">Allow 30 min</button>
+        </div>
+        <div class="site-actions">
             <span id="currentSiteStatus" class="subtle">Checking current site…</span>
         </div>
     </div>
