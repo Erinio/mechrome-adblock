@@ -105,7 +105,8 @@ function buildRules(domains) {
       priority: 200,
       action: { type: 'allow' },
       condition: {
-        requestDomains: [domain],
+        urlFilter: `||${domain}^`,
+        domainType: 'thirdParty',
         resourceTypes: ['script', 'stylesheet', 'font']
       }
     });

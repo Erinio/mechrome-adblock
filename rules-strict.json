@@ -6,9 +6,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "cdnjs.cloudflare.com"
-            ],
+            "urlFilter": "||cdnjs.cloudflare.com^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
@@ -23,9 +22,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "ajax.googleapis.com"
-            ],
+            "urlFilter": "||ajax.googleapis.com^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
@@ -40,9 +38,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "gstatic.com"
-            ],
+            "urlFilter": "||gstatic.com^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
@@ -57,9 +54,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "fonts.gstatic.com"
-            ],
+            "urlFilter": "||fonts.gstatic.com^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
@@ -74,9 +70,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "jsdelivr.net"
-            ],
+            "urlFilter": "||jsdelivr.net^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
@@ -91,9 +86,8 @@
             "type": "allow"
         },
         "condition": {
-            "requestDomains": [
-                "unpkg.com"
-            ],
+            "urlFilter": "||unpkg.com^",
+            "domainType": "thirdParty",
             "resourceTypes": [
                 "script",
                 "stylesheet",
